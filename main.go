@@ -77,11 +77,12 @@ func initRoutes() {
 	routes = map[string]route.Route{}
 	mids := []middleware.Middleware{
 		middleware.NewStatsMiddleware(),
-		middleware.NewRateLimitMiddleware(),
+		middleware.NewRateLimitMiddleware(redisClient, "backend1", 10, true, ""),
 		middleware.NewLogMiddleware("Backend 1"),
 	}
 	mids2 := []middleware.Middleware{
 		middleware.NewLogMiddleware("Backend 2"),
+		middleware.NewRateLimit2Middleware(redisClient, "backend2", 2, true, ""),
 	}
 	route1, _ := route.NewRoute("/backend1", "http://localhost:3000", mids)
 	route2, _ := route.NewRoute("/backend2", "http://localhost:3001", mids2)

@@ -1,0 +1,23 @@
+version: '2'
+services:
+  backend_1:
+    build: ./sample-backend
+    environment: 
+      - "PORT=3000"
+      - "CONTEXT_PATH=/backend1"
+      - "MESSAGE=From backend 1"
+    ports: 
+      - "3000:3000"
+  backend_2:
+    build: ./sample-backend
+    environment: 
+      - "PORT=3001"
+      - "CONTEXT_PATH=/backend2"
+      - "MESSAGE=From backend 2"
+    ports: 
+      - "3001:3001"
+  redis:
+    image: redis:6-alpine
+    ports: 
+      - "6379:6379"
+      
