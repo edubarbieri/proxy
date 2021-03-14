@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/joho/godotenv"
@@ -21,8 +22,10 @@ func getRequestURI(req *http.Request) string {
 }
 
 func determineRoute(uri string) (route.Route, error) {
-	if backend, hasKey := routes[uri]; hasKey {
-		return backend, nil
+	for pattern, route := range routes {
+		if strings.HasPrefix(uri, pattern) {
+			return route, nil
+		}
 	}
 	return route.Route{}, errors.New("not found backend")
 }
@@ -76,16 +79,12 @@ func initRoutes() {
 	log.Println("initializing routes configurations...")
 	routes = map[string]route.Route{}
 	mids := []middleware.Middleware{
-		middleware.NewStatsMiddleware(),
-		middleware.NewRateLimitMiddleware(redisClient, "backend1", 10, true, ""),
+		middleware.NewRateLimitMiddleware(redisClient, "backend1", 1000, true, ""),
 		middleware.NewLogMiddleware("Backend 1"),
 	}
-	mids2 := []middleware.Middleware{
-		middleware.NewLogMiddleware("Backend 2"),
-		middleware.NewRateLimit2Middleware(redisClient, "backend2", 2, true, ""),
-	}
-	route1, _ := route.NewRoute("/backend1", "http://localhost:3000", mids)
-	route2, _ := route.NewRoute("/backend2", "http://localhost:3001", mids2)
+	mids2 := []middleware.Middleware{}
+	route1, _ := route.NewRoute("/backend1", []string{"http://localhost:3000"}, mids, true)
+	route2, _ := route.NewRoute("/backend2", []string{"http://localhost:3001", "http://localhost:3002", "http://localhost:3003"}, mids2, false)
 
 	routes[route1.Pattern] = route1
 	routes[route2.Pattern] = route2

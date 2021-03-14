@@ -8,14 +8,30 @@ services:
       - "MESSAGE=From backend 1"
     ports: 
       - "3000:3000"
-  backend_2:
+  backend_2a:
     build: ./sample-backend
     environment: 
       - "PORT=3001"
       - "CONTEXT_PATH=/backend2"
-      - "MESSAGE=From backend 2"
+      - "MESSAGE=From backend 2A"
     ports: 
       - "3001:3001"
+  backend_2b:
+    build: ./sample-backend
+    environment: 
+      - "PORT=3002"
+      - "CONTEXT_PATH=/backend2"
+      - "MESSAGE=From backend 2B"
+    ports: 
+      - "3002:3002"
+  backend_2c:
+    build: ./sample-backend
+    environment: 
+      - "PORT=3003"
+      - "CONTEXT_PATH=/backend2"
+      - "MESSAGE=From backend 2C"
+    ports: 
+      - "3003:3003"
   redis:
     image: redis:6-alpine
     ports: 
