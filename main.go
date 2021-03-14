@@ -2,55 +2,57 @@ package main
 
 import (
 	"errors"
+	"httpproxy/middleware"
+	"httpproxy/route"
 	"log"
 	"net/http"
-	"net/http/httputil"
-	"net/url"
 )
 
-var routes map[string]string
+var routes map[string]route.Route
 
 func getRequestURI(req *http.Request) string {
 	return req.RequestURI
 }
 
-func determineRoute(uri string) (string, error) {
+func determineRoute(uri string) (route.Route, error) {
 	if backend, hasKey := routes[uri]; hasKey {
 		return backend, nil
 	}
-	return "", errors.New("Not found backend")
+	return route.Route{}, errors.New("not found backend")
 }
 
 func handlerRequest(res http.ResponseWriter, req *http.Request) {
 	requestUri := getRequestURI(req)
-	log.Printf("Request URI is %s", requestUri)
+	route, noRoute := determineRoute(requestUri)
 
-	backendUrl, notBackend := determineRoute(requestUri)
-
-	if notBackend != nil {
+	if noRoute != nil {
 		log.Printf("No backend for uri %s", requestUri)
 		res.WriteHeader(404)
 		return
 	}
-
-	log.Printf("Backend url is %s", backendUrl)
-
-	url, parseUrlError := url.Parse(backendUrl)
-
-	if parseUrlError != nil {
-		log.Printf("Could not parser backend url %s - %v", backendUrl, parseUrlError)
-		return
-	}
-	proxy := httputil.NewSingleHostReverseProxy(url)
-	proxy.ServeHTTP(res, req)
+	route.HandlerRequest(res, req)
 }
 
 func main() {
-	routes = map[string]string{
-		"/backend1": "http://localhost:3000",
-		"/backend2": "http://localhost:3001",
-	}
+	routes = map[string]route.Route{}
+	initRoutes()
 	http.HandleFunc("/", handlerRequest)
 	log.Printf("Starting proxy in port %v", 8080)
 	log.Fatal(http.ListenAndServe(":8080", nil))
+}
+
+func initRoutes() {
+	mids := []middleware.Middleware{
+		middleware.NewStatsMiddleware(),
+		middleware.NewRateLimitMiddleware(),
+		middleware.NewLogMiddleware("Backend 1"),
+	}
+	mids2 := []middleware.Middleware{
+		middleware.NewLogMiddleware("Backend 2"),
+	}
+	route1, _ := route.NewRoute("/backend1", "http://localhost:3000", mids)
+	route2, _ := route.NewRoute("/backend2", "http://localhost:3001", mids2)
+
+	routes[route1.Pattern] = route1
+	routes[route2.Pattern] = route2
 }
