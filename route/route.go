@@ -1,101 +1,81 @@
 package route
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"httpproxy/middleware"
+	"log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"sync"
 	"sync/atomic"
-
-	"github.com/thoas/stats"
 )
 
 type Route struct {
 	Pattern      string
-	BackendURI   []*url.URL
+	BackendURIs  []*url.URL
 	firstHandler http.Handler
 	Middlewares  []middleware.Middleware
-	StatsEnabled bool
-	stats        *stats.Stats
+	proxies      []*httputil.ReverseProxy
+	next         uint64
+	isInited     bool
+	sync.Mutex
 }
 
-func NewRoute(pattern string, backendURIs []string, middlewares []middleware.Middleware, statsEnabled bool) (Route, error) {
-
+func NewRoute(pattern string, backendURIs []string, middlewares []middleware.Middleware) (*Route, error) {
 	urls := make([]*url.URL, 0)
-
 	for _, backendURI := range backendURIs {
 		url, parseUrlError := url.Parse(backendURI)
 		if parseUrlError != nil {
 			msg := fmt.Sprintf("could not parser backend uri %s - %v", backendURI, parseUrlError)
-			return Route{}, errors.New(msg)
+			return nil, errors.New(msg)
 		}
 		urls = append(urls, url)
 	}
-
-	var statsMid *stats.Stats
-	if statsEnabled {
-		statsMid = stats.New()
-	}
-
-	return Route{
-		Pattern:      pattern,
-		BackendURI:   urls,
-		StatsEnabled: statsEnabled,
-		stats:        statsMid,
-		firstHandler: createChainHandler(middlewares, urls, statsMid),
-		Middlewares:  middlewares,
+	return &Route{
+		Pattern:     pattern,
+		BackendURIs: urls,
+		Middlewares: middlewares,
 	}, nil
-}
-
-func createChainHandler(middlewares []middleware.Middleware, backendURI []*url.URL, statsMid *stats.Stats) http.Handler {
-	funcHandler := new(Proxy).newProxyHandler(backendURI)
-	for index := len(middlewares) - 1; index >= 0; index-- {
-		currentMid := middlewares[index]
-		funcHandler = currentMid.Middleware(funcHandler)
-	}
-	if statsMid != nil {
-		return statsMid.Handler(funcHandler)
-	}
-	return funcHandler
-
-}
-
-type Proxy struct {
-	proxies []*httputil.ReverseProxy
-	next    uint32
-}
-
-func (proxy *Proxy) nextProxy() *httputil.ReverseProxy {
-	n := atomic.AddUint32(&proxy.next, 1)
-	return proxy.proxies[(int(n)-1)%len(proxy.proxies)]
-}
-
-func (proxy *Proxy) newProxyHandler(backendURI []*url.URL) http.Handler {
-	for _, url := range backendURI {
-		proxy.proxies = append(proxy.proxies, httputil.NewSingleHostReverseProxy(url))
-	}
-	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-		proxy.nextProxy().ServeHTTP(res, req)
-	})
 }
 
 // Main method to handler request for this rout
 func (route *Route) HandlerRequest(res http.ResponseWriter, req *http.Request) {
-	if route.StatsEnabled && req.URL.Query().Get("op") == "stats" {
-		route.writeStatsData(res)
-		return
+	if !route.isInited {
+		route.Init()
 	}
 	route.firstHandler.ServeHTTP(res, req)
 }
-func (route *Route) StatsData() *stats.Data {
-	return route.stats.Data()
+
+func (r *Route) Init() {
+	r.Lock()
+	defer r.Unlock()
+	if r.isInited {
+		return
+	}
+	log.Printf("initializing route %v", r.Pattern)
+	funcHandler := r.initProxy()
+	for index := len(r.Middlewares) - 1; index >= 0; index-- {
+		currentMid := r.Middlewares[index]
+		funcHandler = currentMid.Middleware(funcHandler)
+	}
+	r.firstHandler = funcHandler
+	r.isInited = true
 }
 
-func (route *Route) writeStatsData(res http.ResponseWriter) {
-	res.Header().Set("Content-Type", "application/json")
-	b, _ := json.Marshal(route.stats.Data())
-	res.Write(b)
+func (r *Route) initProxy() http.Handler {
+	r.next = 0
+	r.proxies = make([]*httputil.ReverseProxy, 0)
+	for _, url := range r.BackendURIs {
+		r.proxies = append(r.proxies, httputil.NewSingleHostReverseProxy(url))
+	}
+	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		r.nextProxy().ServeHTTP(res, req)
+	})
+}
+
+func (r *Route) nextProxy() *httputil.ReverseProxy {
+	n := atomic.AddUint64(&r.next, 1)
+	return r.proxies[(int(n)-1)%len(r.proxies)]
 }

@@ -32,6 +32,14 @@ services:
       - "MESSAGE=From backend 2C"
     ports: 
       - "3003:3003"
+  backend_2d:
+    build: ./sample-backend
+    environment: 
+      - "PORT=3004"
+      - "CONTEXT_PATH=/backend2"
+      - "MESSAGE=From backend 2D"
+    ports: 
+      - "3004:3004"
   redis:
     image: redis:6-alpine
     ports: 
