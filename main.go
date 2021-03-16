@@ -9,11 +9,13 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/joho/godotenv"
 )
 
+var mainStatsMid *middleware.StatsMiddleware
 var mainRateLimit *middleware.RateLimitMiddleware
 var routes map[string]*route.Route
 var redisClient *redis.Client
@@ -22,10 +24,12 @@ func main() {
 	initEnv()
 	initRedisClient()
 	mainRateLimit = middleware.NewRateLimitMiddleware(redisClient)
+	mainStatsMid = middleware.NewStatsMiddleware()
 	//Log -> Stats -> RateLimit -> handlerRequest
 	finalHandler := http.HandlerFunc(handlerRequest)
-	firstFnc := mainRateLimit.Middleware(finalHandler)
+	firstFnc := mainStatsMid.Middleware(mainRateLimit.Middleware(finalHandler))
 	initRoutes()
+	go publishStats()
 
 	if os.Getenv("DEBUG") == "true" {
 		logMid := middleware.LogMiddleware{}
@@ -93,12 +97,19 @@ func initRoutes() {
 	routes[route2.Pattern] = route2
 
 	rule := middleware.RateLimiteRule{
-		ID:          "1",
-		Limit:       10,
-		TargetPath:  "/backend2",
-		SourceIP:    true,
-		HeaderValue: "api-key",
+		ID:         "1",
+		Limit:      10,
+		TargetPath: "/backend1",
+		SourceIP:   true,
 	}
 
 	mainRateLimit.UpdateRules([]middleware.RateLimiteRule{rule})
+}
+
+func publishStats() {
+	channel := os.Getenv("STATS_CHANNEL")
+	ticker := time.NewTicker(5 * time.Second)
+	for range ticker.C {
+		mainStatsMid.PublishStatsRedis(redisClient, channel)
+	}
 }
