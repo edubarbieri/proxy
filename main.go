@@ -1,15 +1,11 @@
 package main
 
 import (
-	"context"
-	"errors"
 	"httpproxy/middleware"
 	"httpproxy/route"
 	"log"
 	"net/http"
 	"os"
-	"strings"
-	"time"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/joho/godotenv"
@@ -17,48 +13,17 @@ import (
 
 var mainStatsMid *middleware.StatsMiddleware
 var mainRateLimit *middleware.RateLimitMiddleware
-var routes map[string]*route.Route
 var redisClient *redis.Client
 
 func main() {
 	initEnv()
 	initRedisClient()
-	mainRateLimit = middleware.NewRateLimitMiddleware(redisClient)
-	mainStatsMid = middleware.NewStatsMiddleware()
-	//Log -> Stats -> RateLimit -> handlerRequest
-	finalHandler := http.HandlerFunc(handlerRequest)
-	firstFnc := mainStatsMid.Middleware(mainRateLimit.Middleware(finalHandler))
 	initRoutes()
-	go publishStats()
+	initPubSub()
 
-	if os.Getenv("DEBUG") == "true" {
-		logMid := middleware.LogMiddleware{}
-		firstFnc = logMid.Middleware(firstFnc)
-	}
-
-	http.Handle("/", firstFnc)
-	log.Printf("Starting proxy in port %v", 8080)
+	http.Handle("/", initHttpHandlers())
+	log.Printf("starting proxy in port %v", 8080)
 	log.Fatal(http.ListenAndServe(":8080", nil))
-}
-
-func handlerRequest(res http.ResponseWriter, req *http.Request) {
-	requestUri := req.RequestURI
-	route, noRoute := determineRoute(requestUri)
-
-	if noRoute != nil {
-		log.Printf("No backend for uri %s", requestUri)
-		res.WriteHeader(404)
-		return
-	}
-	route.HandlerRequest(res, req)
-}
-func determineRoute(uri string) (*route.Route, error) {
-	for pattern, route := range routes {
-		if strings.HasPrefix(uri, pattern) {
-			return route, nil
-		}
-	}
-	return nil, errors.New("not found backend")
 }
 
 func initEnv() {
@@ -68,48 +33,23 @@ func initEnv() {
 	}
 }
 
-func initRedisClient() {
-	redisAddress := os.Getenv("REDIS_ADDRESS")
-	redisPassword := os.Getenv("REDIS_PASSWORD")
-
-	log.Printf("initializing redis client for server %s...\n", redisAddress)
-	redisClient = redis.NewClient(&redis.Options{
-		Addr:     redisAddress,
-		Password: redisPassword, // no password set
-		DB:       0,             // use default DB
-	})
-	ctx := context.Background()
-	_, err := redisClient.Ping(ctx).Result()
-	if err != nil {
-		log.Fatalf("error connecting to redis server: %v", err)
+func initHttpHandlers() http.Handler {
+	mainRateLimit = middleware.NewRateLimitMiddleware(redisClient)
+	mainStatsMid = middleware.NewStatsMiddleware()
+	//Log -> Stats -> RateLimit -> handleHandlerRequestrRequest
+	routeHandler := http.HandlerFunc(route.HandlerRequest)
+	firstFnc := mainStatsMid.Middleware(mainRateLimit.Middleware(routeHandler))
+	if os.Getenv("DEBUG") == "true" {
+		logMid := middleware.LogMiddleware{}
+		firstFnc = logMid.Middleware(firstFnc)
 	}
+	return firstFnc
 }
 
 func initRoutes() {
+	config := ReadConfigJson()
 	log.Println("initializing routes configurations...")
-	routes = map[string]*route.Route{}
-	mids := []middleware.Middleware{}
-	mids2 := []middleware.Middleware{}
-	route1, _ := route.NewRoute("/backend1", []string{"http://localhost:3000"}, mids)
-	route2, _ := route.NewRoute("/backend2", []string{"http://localhost:3001", "http://localhost:3002", "http://localhost:3003", "http://localhost:3004"}, mids2)
-
-	routes[route1.Pattern] = route1
-	routes[route2.Pattern] = route2
-
-	rule := middleware.RateLimiteRule{
-		ID:         "1",
-		Limit:      10,
-		TargetPath: "/backend1",
-		SourceIP:   true,
-	}
-
-	mainRateLimit.UpdateRules([]middleware.RateLimiteRule{rule})
-}
-
-func publishStats() {
-	channel := os.Getenv("STATS_CHANNEL")
-	ticker := time.NewTicker(5 * time.Second)
-	for range ticker.C {
-		mainStatsMid.PublishStatsRedis(redisClient, channel)
-	}
+	route.UpdateRoutes(CreateRoutes(config.Routes))
+	log.Println("initializing rate limit configurations...")
+	mainRateLimit.UpdateRules(CreateRateLimiteRules(config.Limits))
 }
