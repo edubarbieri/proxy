@@ -10,7 +10,10 @@ const message = process.env.MESSAGE || 'Hello World!'
 const path = process.env.CONTEXT_PATH || '/'
 
 app.get(path, (req, res) => {
-  res.send(message)
+  let x = 0
+  for (; x < 100000; x++) {
+  }
+  res.send(message + "-" + x)
 })
 
 app.listen(port, host, () => {
