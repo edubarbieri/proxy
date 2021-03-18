@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/edubarbieri/proxy/config"
+
 	"github.com/go-redis/redis/v8"
 )
 
@@ -61,9 +63,27 @@ func NewRateLimitMiddleware(redisClient *redis.Client) *RateLimitMiddleware {
 	}
 }
 
-func (md *RateLimitMiddleware) UpdateRules(rules []RateLimiteRule) {
+func (md *RateLimitMiddleware) UpdateConfig(c config.Config) {
 	log.Println("updating ratelimit rules")
-	md.rules = rules
+	md.rules = md.createRateLimiteRules(c.Limits)
+}
+
+func (c *RateLimitMiddleware) createRateLimiteRules(limitsConfig []config.LimitConfig) []RateLimiteRule {
+	rules := []RateLimiteRule{}
+	for _, config := range limitsConfig {
+		rule := c.createRateLimiteRule(config)
+		rules = append(rules, rule)
+	}
+	return rules
+}
+func (c *RateLimitMiddleware) createRateLimiteRule(limitsConfig config.LimitConfig) RateLimiteRule {
+	return RateLimiteRule{
+		ID:          limitsConfig.ID,
+		Limit:       uint64(limitsConfig.RequestMin),
+		TargetPath:  limitsConfig.TargetPath,
+		SourceIP:    limitsConfig.SourceIp,
+		HeaderValue: limitsConfig.HeaderValue,
+	}
 }
 
 func (md *RateLimitMiddleware) findRule(req *http.Request) (*RateLimiteRule, bool) {

@@ -1,6 +1,6 @@
 version: '2'
 services:
-  backend_1:
+  backend1:
     build: ./sample-backend
     environment: 
       - "PORT=3000"
@@ -8,40 +8,42 @@ services:
       - "MESSAGE=From backend 1"
     ports: 
       - "3000:3000"
-  backend_2a:
+  backend2a:
     build: ./sample-backend
     environment: 
       - "PORT=3001"
       - "CONTEXT_PATH=/backend2"
       - "MESSAGE=From backend 2A"
-    ports: 
-      - "3001:3001"
-  backend_2b:
+  backend2b:
     build: ./sample-backend
     environment: 
       - "PORT=3002"
       - "CONTEXT_PATH=/backend2"
       - "MESSAGE=From backend 2B"
-    ports: 
-      - "3002:3002"
-  backend_2c:
+  backend2c:
     build: ./sample-backend
     environment: 
       - "PORT=3003"
       - "CONTEXT_PATH=/backend2"
       - "MESSAGE=From backend 2C"
-    ports: 
-      - "3003:3003"
-  backend_2d:
+  backend2d:
     build: ./sample-backend
     environment: 
       - "PORT=3004"
       - "CONTEXT_PATH=/backend2"
       - "MESSAGE=From backend 2D"
-    ports: 
-      - "3004:3004"
   redis:
     image: redis:6-alpine
+  proxy:
+    build: ./proxy
+    depends_on: 
+      - redis
+    volumes: 
+      - "./config.json:/app/config.json"
+    environment: 
+      - "REDIS_ADDRESS=redis:6379"
+      - "DEBUG=false"
     ports: 
-      - "6379:6379"
+      - "8080:8080"
+    
       

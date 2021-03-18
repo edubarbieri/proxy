@@ -6,17 +6,21 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"proxy/middleware"
 	"strings"
+
+	"github.com/edubarbieri/proxy/config"
+	"github.com/edubarbieri/proxy/middleware"
 )
 
 type AdminMiddleware struct {
 	statsMiddleware *middleware.StatsMiddleware
+	configManager   *config.ConfigManager
 }
 
-func NewAdminMiddleware(statsMiddleware *middleware.StatsMiddleware) AdminMiddleware {
+func NewAdminMiddleware(statsMiddleware *middleware.StatsMiddleware, configManager *config.ConfigManager) AdminMiddleware {
 	return AdminMiddleware{
 		statsMiddleware: statsMiddleware,
+		configManager:   configManager,
 	}
 }
 
@@ -44,36 +48,36 @@ func (md *AdminMiddleware) Middleware(next http.Handler) http.Handler {
 	})
 }
 
-func (md *AdminMiddleware) handlerStats(w http.ResponseWriter) {
+func (adm *AdminMiddleware) handlerStats(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json")
-	stats := md.statsMiddleware.GenerateStats()
+	stats := adm.statsMiddleware.GenerateStats()
 	b, _ := json.Marshal(stats)
 	w.Write(b)
 }
-func (md *AdminMiddleware) handlerResetStats(w http.ResponseWriter) {
+func (adm *AdminMiddleware) handlerResetStats(w http.ResponseWriter) {
+	stats := adm.statsMiddleware.GenerateStatsAndReset()
 	w.Header().Set("Content-Type", "application/json")
-	stats := md.statsMiddleware.GenerateStatsAndReset()
 	b, _ := json.Marshal(stats)
 	w.Write(b)
 }
-func (md *AdminMiddleware) handlerUpdateConfig(w http.ResponseWriter, r *http.Request) {
-	var config Config
+func (adm *AdminMiddleware) handlerUpdateConfig(w http.ResponseWriter, r *http.Request) {
+	var config config.Config
 	err := json.NewDecoder(r.Body).Decode(&config)
 	if err != nil {
 		log.Printf("error parsing json config %v", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	updateConfig(config)
+	adm.configManager.UpdateConfig(config)
 	file, _ := json.MarshalIndent(config, "", " ")
 	ioutil.WriteFile(os.Getenv("CONFIG_PATH"), file, 0644)
 
-	md.handlerReadConfig(w)
+	adm.handlerReadConfig(w)
 
 }
-func (md *AdminMiddleware) handlerReadConfig(w http.ResponseWriter) {
+func (adm *AdminMiddleware) handlerReadConfig(w http.ResponseWriter) {
+	config := adm.configManager.GetCurrentConfig()
 	w.Header().Set("Content-Type", "application/json")
-	config := ReadConfigJson()
 	b, _ := json.Marshal(config)
 	w.Write(b)
 }

@@ -16,3 +16,4 @@ vendor/
 
 node_modules
 httpproxy
+proxy/proxy

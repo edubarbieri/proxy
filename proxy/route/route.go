@@ -7,9 +7,10 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"proxy/middleware"
 	"sync"
 	"sync/atomic"
+
+	"github.com/edubarbieri/proxy/middleware"
 )
 
 type Route struct {

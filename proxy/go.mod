@@ -1,4 +1,4 @@
-module proxy
+module github.com/edubarbieri/proxy
 
 go 1.16
 

@@ -5,25 +5,31 @@ import (
 	"log"
 	"net/http"
 	"strings"
+
+	"github.com/edubarbieri/proxy/config"
+	"github.com/edubarbieri/proxy/middleware"
 )
 
-var routes map[string]*Route
-
-func UpdateRoutes(newRoutes map[string]*Route) {
-	routes = newRoutes
+type EntryPoint struct {
+	routes map[string]*Route
 }
 
-func determineRoute(uri string) (*Route, error) {
-	for pattern, route := range routes {
+func (e *EntryPoint) UpdateConfig(c config.Config) {
+	log.Println("updating entry point route config")
+	e.routes = e.createRoutes(c.Routes)
+}
+
+func (e *EntryPoint) determineRoute(uri string) (*Route, error) {
+	for pattern, route := range e.routes {
 		if strings.HasPrefix(uri, pattern) {
 			return route, nil
 		}
 	}
 	return nil, errors.New("not found backend")
 }
-func HandlerRequest(res http.ResponseWriter, req *http.Request) {
+func (e *EntryPoint) HandlerRequest(res http.ResponseWriter, req *http.Request) {
 	requestUri := req.RequestURI
-	route, noRoute := determineRoute(requestUri)
+	route, noRoute := e.determineRoute(requestUri)
 
 	if noRoute != nil {
 		log.Printf("No backend for uri %s", requestUri)
@@ -31,4 +37,22 @@ func HandlerRequest(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 	route.HandlerRequest(res, req)
+}
+
+func (e *EntryPoint) createRoutes(routesConfig []config.RouteConfig) map[string]*Route {
+	routesMap := map[string]*Route{}
+	for _, config := range routesConfig {
+		route, error := e.createRoute(config)
+		if error != nil {
+			log.Printf("error creating route %s - %v", config.Pattern, error)
+			continue
+		}
+		routesMap[config.Pattern] = route
+	}
+
+	return routesMap
+}
+
+func (e *EntryPoint) createRoute(routeConfig config.RouteConfig) (*Route, error) {
+	return NewRoute(routeConfig.Pattern, routeConfig.Backends, []middleware.Middleware{})
 }

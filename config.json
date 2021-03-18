@@ -1,0 +1,28 @@
+{
+ "routes": [
+  {
+   "pattern": "/backend1",
+   "backends": [
+    "http://backend1:3000"
+   ]
+  },
+  {
+   "pattern": "/backend2",
+   "backends": [
+    "http://backend2a:3001",
+    "http://backend2b:3002",
+    "http://backend2c:3003",
+    "http://backend2d:3004"
+   ]
+  }
+ ],
+ "limits": [
+  {
+   "id": "1",
+   "requestMin": 100000,
+   "targetPath": "/backend2",
+   "sourceIp": true,
+   "headerValue": ""
+  }
+ ]
+}
