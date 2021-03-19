@@ -1,0 +1,179 @@
+swagger: '2.0'
+info:
+  description: Http proxy API
+  version: 1.0.0
+  title: Http proxy API
+  contact:
+    email: duduardo23@gmail.com
+
+  
+paths:
+  /proxy-admin/config:
+    put:
+      tags:
+      - Proxy config
+      summary: Update proxy configurations
+      operationId: updateProxyConfig
+      description: |
+        This operation will be update proxy setting
+      produces:
+      - application/json
+      parameters:
+      - in: body
+        name: proxy configuration
+        schema:
+          $ref: '#/definitions/ProxyConfig'
+      responses:
+        200:
+          description: current proxy configuration
+          schema:
+            $ref: '#/definitions/ProxyConfig'
+    get:
+      tags:
+      - Proxy config
+      summary: Get current proxy configuration
+      operationId: getProxyConfig
+      description: This operation return the current proxy configuration
+      produces:
+      - application/json
+      responses:
+        200:
+          description: current proxy configuration
+          schema:
+            $ref: '#/definitions/ProxyConfig'
+  /proxy-admin/stats:
+    get:
+      tags:
+      - Proxy statistics
+      summary: Get proxy statistics
+      operationId: getStats
+      produces:
+      - application/json
+      responses:
+        200:
+          description: current proxy statistics
+          schema:
+            $ref: '#/definitions/ProxyStats'
+    delete:
+      tags:
+      - Proxy statistics
+      summary: Reset proxy statistics
+      description: Reset proxy statistics
+      responses:
+        200:
+          description: proxy statistics before reset
+          schema:
+            $ref: '#/definitions/ProxyStats'
+    
+definitions:
+  ProxyConfig:
+    type: object
+    properties:
+      routes:
+        description: List of routes configurations
+        type: array
+        items:
+          $ref: '#/definitions/RouteConfig'
+      limits:
+        description: List of rate limit rules
+        type: array
+        items:
+          $ref: '#/definitions/LimitConfig'
+        
+  RouteConfig:
+    description: Route configuration
+    type: object
+    required: 
+      - pattern
+      - backends
+    properties:
+      pattern:
+        type: string
+        example: /backend1
+      backends:
+        type: array
+        items:
+          type: string
+        example: ["http://backend2a:3001", "http://backend2a:3002"]
+  LimitConfig:
+    description: Rate limite configuration
+    type: object
+    required: 
+      - id
+      - requestMin
+    properties:
+      id:
+        type: string
+        description: Unique rule ID
+        example: rule01
+      requestMin:
+        type: integer
+        description: Number of allowed request per minute
+        example: 10000
+      targetPath:
+        type: string
+        description: Url path that the rule must be applied.
+        example: /backend2
+      sourceIp:
+        type: boolean
+        description: Apply rule by request source ip
+      headerValue:
+        type: string
+        description: Apply rule by request header value
+        example: X-Apikey
+  ProxyStats:
+    description: Proxy statistics
+    type: object
+    properties:
+      pid:
+        type: integer
+        description: Proxy process pid
+        example: 4567
+      hostname:
+        type: string
+        description: Proxy process host name
+        example: teste.pc.com
+      time:
+        type: string
+        description: Current date
+        example: 2021-03-19 21:25:13.677485645
+      timeUnix:
+        type: integer
+        description: Unix time
+        example: 1616189113
+      totalRequest:
+        type: integer
+        description: Number of requests handled by proxy
+        example: 235657456
+      totalResponseTime:
+        type: string
+        description: Sum of all response time
+        example: 2m25.270945847s
+      totalResponseTimeSec:
+        type: number
+        description: Sum of all response time in seconds
+        example: 145.270945847
+      averageResponseTime:
+        type: string
+        description: Response time average
+        example: 180.828µs
+      averageResponseTimeSec:
+        type: number
+        description: Response time average in seconds
+        example: 0.000180828
+      totalRequestByStatus:
+        type: object
+        description: Number of requests handled by proxy by http status code
+        additionalProperties:
+          type: integer
+        example: 
+          200: 3455
+          429: 56732
+      totalRequestByPath:
+        type: object
+        description: Number of requests handled by proxy by url path
+        additionalProperties:
+          type: integer
+        example: 
+          /backend1/user: 4003
+          /backend1/order: 3456

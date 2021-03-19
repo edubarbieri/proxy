@@ -42,11 +42,11 @@ func NewRoute(pattern string, backendURIs []string, middlewares []middleware.Mid
 }
 
 // Main method to handler request for this rout
-func (route *Route) HandlerRequest(res http.ResponseWriter, req *http.Request) {
-	if !route.isInited {
-		route.Init()
+func (r *Route) HandlerRequest(res http.ResponseWriter, req *http.Request) {
+	if !r.isInited {
+		r.Init()
 	}
-	route.firstHandler.ServeHTTP(res, req)
+	r.firstHandler.ServeHTTP(res, req)
 }
 
 func (r *Route) Init() {

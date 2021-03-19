@@ -20,7 +20,7 @@
   {
    "id": "1",
    "requestMin": 100000,
-   "targetPath": "/backend2",
+   "targetPath": "/backend1",
    "sourceIp": true,
    "headerValue": ""
   }

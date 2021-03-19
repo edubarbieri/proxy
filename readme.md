@@ -1,14 +1,33 @@
 # Proxy server
 
+Servidor http proxy construído com go lang com as seguintes funcionalidades:
+- Access logs dos requests processados;
+- Estatisticas do servidor:
+  - Total de request atendidos;
+  - Tempo de resposta médio;
+  - Total de requests por http status;
+  - Total de requests por url path;
+- Rate limite
+  - Possibilita configurar o limite por: path de destino, ip de origem e valor de header http;
+  - Utiliza redis para possibilitar que varias instancias do proxy compartilhem as informações.
+- Rotas configuráveis:
+  - Configurável por path 
+  - Múltiplos backends
+  - Possibilita configuração de middlewares por rota 
+- Api Rest para administração das configurações e estatísticas
+
+## Desenho
 <p align="center">
 <img src="proxy.png" alt="Diagram" title="Diagram" />
 </p>
 
-## Start all services
+## Iniciar todos os serviços
 ```shell
 docker-compose.exe up --build --remove-orphans
 ```
 ## API Rest
+A documentação para api resto pode ser encontrada [aqui](swagger.yml).
+
 ### Update proxy config
 ```shell
 curl --request PUT \
@@ -70,11 +89,15 @@ curl --request GET \
 ```
 ## Test
 
-https://github.com/codesenberg/bombardier
+Para testes básicos de desempenho utilizei a ferramenta [bombardier](https://github.com/codesenberg/bombardier), disparando para uma rota configurada com 4 replicas do [sample-backend](sample-backend), os resultados obtidos podem ser vistos a seguir.
+
+### Comando executado
 ```shell
 bombardier -c 10 -d 10m -l http://localhost:8080/backend2
 ```
-
+<p align="center">
+<img src="stresstest.png" alt="Diagram" title="Diagram" />
+</p>
 
 
 

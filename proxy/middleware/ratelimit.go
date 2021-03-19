@@ -15,10 +15,10 @@ import (
 
 type RateLimitMiddleware struct {
 	redisClient *redis.Client
-	rules       []RateLimiteRule
+	rules       []RateLimitRule
 }
 
-type RateLimiteRule struct {
+type RateLimitRule struct {
 	ID          string
 	Limit       uint64
 	TargetPath  string
@@ -26,7 +26,7 @@ type RateLimiteRule struct {
 	SourceIP    bool
 }
 
-func (rule *RateLimiteRule) match(req *http.Request) bool {
+func (rule *RateLimitRule) match(req *http.Request) bool {
 	if len(rule.TargetPath) > 0 && !strings.HasPrefix(req.RequestURI, rule.TargetPath) {
 		return false
 	}
@@ -39,7 +39,7 @@ func (rule *RateLimiteRule) match(req *http.Request) bool {
 	return true
 }
 
-func (rule *RateLimiteRule) ruleKey(req *http.Request) string {
+func (rule *RateLimitRule) ruleKey(req *http.Request) string {
 	key := "rate:" + rule.ID
 	if len(rule.TargetPath) > 0 && strings.HasPrefix(req.RequestURI, rule.TargetPath) {
 		key = key + ":" + rule.TargetPath
@@ -68,16 +68,16 @@ func (md *RateLimitMiddleware) UpdateConfig(c config.Config) {
 	md.rules = md.createRateLimiteRules(c.Limits)
 }
 
-func (c *RateLimitMiddleware) createRateLimiteRules(limitsConfig []config.LimitConfig) []RateLimiteRule {
-	rules := []RateLimiteRule{}
+func (md *RateLimitMiddleware) createRateLimiteRules(limitsConfig []config.LimitConfig) []RateLimitRule {
+	var rules []RateLimitRule
 	for _, config := range limitsConfig {
-		rule := c.createRateLimiteRule(config)
+		rule := md.createRateLimiteRule(config)
 		rules = append(rules, rule)
 	}
 	return rules
 }
-func (c *RateLimitMiddleware) createRateLimiteRule(limitsConfig config.LimitConfig) RateLimiteRule {
-	return RateLimiteRule{
+func (md *RateLimitMiddleware) createRateLimiteRule(limitsConfig config.LimitConfig) RateLimitRule {
+	return RateLimitRule{
 		ID:          limitsConfig.ID,
 		Limit:       uint64(limitsConfig.RequestMin),
 		TargetPath:  limitsConfig.TargetPath,
@@ -86,7 +86,7 @@ func (c *RateLimitMiddleware) createRateLimiteRule(limitsConfig config.LimitConf
 	}
 }
 
-func (md *RateLimitMiddleware) findRule(req *http.Request) (*RateLimiteRule, bool) {
+func (md *RateLimitMiddleware) findRule(req *http.Request) (*RateLimitRule, bool) {
 	for _, rule := range md.rules {
 		if rule.match(req) {
 			return &rule, true
@@ -116,7 +116,7 @@ func (md *RateLimitMiddleware) Middleware(next http.Handler) http.Handler {
 	})
 }
 
-func (md *RateLimitMiddleware) validateRateRule(rule *RateLimiteRule, req *http.Request) (bool, error) {
+func (md *RateLimitMiddleware) validateRateRule(rule *RateLimitRule, req *http.Request) (bool, error) {
 	key := rule.ruleKey(req) + "_" + time.Now().Format("15:04")
 	currentVal, getError := md.redisClient.Get(req.Context(), key).Result()
 	if getError != nil && getError != redis.Nil {

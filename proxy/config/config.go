@@ -25,25 +25,25 @@ type Config struct {
 	Limits []LimitConfig `json:"limits"`
 }
 
-type ConfigObserver interface {
+type Observer interface {
 	UpdateConfig(Config)
 }
 
-type ConfigManager struct {
+type Manager struct {
 	currentConfig      Config
-	configObserverList []ConfigObserver
+	configObserverList []Observer
 }
 
-func (c *ConfigManager) AddUpdateObserver(observer ConfigObserver) {
+func (c *Manager) AddUpdateObserver(observer Observer) {
 	c.configObserverList = append(c.configObserverList, observer)
 }
 
-func (c *ConfigManager) Init() {
+func (c *Manager) Init() {
 	c.currentConfig = c.readConfigJson()
 	c.notifyUpdateConfig()
 }
 
-func (c *ConfigManager) UpdateConfig(config Config) error {
+func (c *Manager) UpdateConfig(config Config) error {
 	c.currentConfig = config
 	c.notifyUpdateConfig()
 
@@ -60,11 +60,11 @@ func (c *ConfigManager) UpdateConfig(config Config) error {
 	return nil
 }
 
-func (c *ConfigManager) GetCurrentConfig() Config {
+func (c *Manager) GetCurrentConfig() Config {
 	return c.currentConfig
 }
 
-func (c *ConfigManager) readConfigJson() Config {
+func (c *Manager) readConfigJson() Config {
 	log.Printf("reading %s config file", os.Getenv("CONFIG_PATH"))
 	jsonFile, err := os.Open(os.Getenv("CONFIG_PATH"))
 	if err != nil {
@@ -82,7 +82,7 @@ func (c *ConfigManager) readConfigJson() Config {
 	return config
 }
 
-func (c *ConfigManager) notifyUpdateConfig() {
+func (c *Manager) notifyUpdateConfig() {
 	for _, o := range c.configObserverList {
 		o.UpdateConfig(c.currentConfig)
 	}

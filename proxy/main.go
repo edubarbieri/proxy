@@ -20,7 +20,7 @@ func main() {
 	godotenv.Load()
 	initRedisClient()
 	//Config manager
-	configManager := &config.ConfigManager{}
+	configManager := &config.Manager{}
 	rateLimitMid := middleware.NewRateLimitMiddleware(redisClient)
 	configManager.AddUpdateObserver(rateLimitMid)
 	statsMid := middleware.NewStatsMiddleware()

@@ -39,15 +39,15 @@ func (e *EntryPoint) HandlerRequest(res http.ResponseWriter, req *http.Request) 
 	route.HandlerRequest(res, req)
 }
 
-func (e *EntryPoint) createRoutes(routesConfig []config.RouteConfig) map[string]*Route {
+func (e *EntryPoint) createRoutes(routesConfigs []config.RouteConfig) map[string]*Route {
 	routesMap := map[string]*Route{}
-	for _, config := range routesConfig {
-		route, error := e.createRoute(config)
+	for _, routeConf := range routesConfigs {
+		route, error := e.createRoute(routeConf)
 		if error != nil {
-			log.Printf("error creating route %s - %v", config.Pattern, error)
+			log.Printf("error creating route %s - %v", routeConf.Pattern, error)
 			continue
 		}
-		routesMap[config.Pattern] = route
+		routesMap[routeConf.Pattern] = route
 	}
 
 	return routesMap
